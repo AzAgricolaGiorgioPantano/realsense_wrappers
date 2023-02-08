@@ -2,8 +2,8 @@
 ##               Read bag from file                ##
 #####################################################
 
-
 # First import library
+from ctypes.wintypes import POINT
 import pyrealsense2 as rs
 # Import Numpy for easy array manipulation
 import numpy as np
@@ -14,6 +14,13 @@ import argparse
 # Import os.path for file path manipulation
 import os.path
 
+point = (400,300)
+
+def click(event, x, y, flags, param):
+  global point, pressed
+  if event == cv2.EVENT_LBUTTONDOWN:
+    print("Pressed",x,y)
+    point = (x,y)
 
 # Create object for parsing command-line options
 parser = argparse.ArgumentParser(description="Read recorded bag file and display depth stream in jet colormap.\
@@ -41,7 +48,7 @@ try:
 
     pipeline = rs.pipeline()
     config = rs.config()
-    
+
     # Tell config that we will use a recorded device from file to be used by the pipeline through playback.
     rs.config.enable_device_from_file(config, args.input)
 
@@ -58,8 +65,11 @@ try:
     align = rs.align(align_to)
 
     # Create opencv window to render image in
-    cv2.namedWindow("Depth Stream", cv2.WINDOW_AUTOSIZE)
-    
+    #cv2.namedWindow("Depth Stream", cv2.WINDOW_AUTOSIZE)
+    cv2.namedWindow("Color frame", cv2.WINDOW_AUTOSIZE)
+
+    cv2.setMouseCallback("Color frame",click)
+
     # Create colorizer object
     colorizer = rs.colorizer()
 
@@ -70,21 +80,18 @@ try:
 
         aligned_frames =  align.process(frames)
 
-        depth_frame = aligned_frames.get_depth_frame()
+        aligned_depth_frame = aligned_frames.get_depth_frame()
         aligned_color_frame = aligned_frames.get_color_frame()
 
         # Get depth frame
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
 
-        # Calculate distance depth
-        width = depth_frame.get_width()
-        height = depth_frame.get_height()
+        # Colorize depth frame to jet colormap
+        color_color_frame = colorizer.colorize(color_frame)
 
-        #https://github.com/IntelRealSense/librealsense/issues/6749 -- do this once I have color
-
-        dist = depth_frame.get_distance(int(width/2), int(height/2))
-        print(dist)
+        # Convert depth_frame to numpy array to render image in opencv
+        color_color_image = np.asanyarray(color_color_frame.get_data())
 
         # Colorize depth frame to jet colormap
         depth_color_frame = colorizer.colorize(depth_frame)
@@ -92,15 +99,21 @@ try:
         # Convert depth_frame to numpy array to render image in opencv
         depth_color_image = np.asanyarray(depth_color_frame.get_data())
 
-        depth_color_image = cv2.circle(depth_color_image, (int(width/2), int(height/2)), radius=10, color=(255, 255, 255), thickness=-1)
+        # Show distance from a specific point
+        cv2.circle(color_color_image, (point[0], point[1]), 4, (0,0,255),-1)
+        dist = depth_frame.get_distance(int(point[0]), int(point[1]))
 
-        # Render image in opencv window
-        cv2.imshow("Depth Stream", depth_color_image)
-        key = cv2.waitKey(1)
-        # if pressed escape exit program
+        cv2.putText(color_color_image,"{}mm".format(dist),(int(point[0]), int(point[1])),cv2.FONT_HERSHEY_PLAIN,2,(15,255,255),2)
+
+        print("Distance",dist)
+
+        cv2.imshow("Color frame", color_color_image)
+        key = cv2.waitKey(1000)
         if key == 27:
             cv2.destroyAllWindows()
             break
+
+
 
 finally:
     pass
