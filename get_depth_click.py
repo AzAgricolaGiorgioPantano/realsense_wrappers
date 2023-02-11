@@ -60,7 +60,7 @@ try:
     # Start streaming from file
     pipeline.start(config)
 
-    # align RGB to depth
+    # align RGB to depth accordint to: https://github.com/IntelRealSense/librealsense/blob/master/wrappers/python/examples/align-depth2color.py
     align_to = rs.stream.depth
     align = rs.align(align_to)
 
@@ -73,6 +73,7 @@ try:
     # Create colorizer object
     colorizer = rs.colorizer()
 
+
     # Streaming loop
     while True:
         # Get frameset of depth
@@ -84,24 +85,24 @@ try:
         aligned_color_frame = aligned_frames.get_color_frame()
 
         # Get depth frame
-        depth_frame = frames.get_depth_frame()
-        color_frame = frames.get_color_frame()
+        #depth_frame = frames.get_depth_frame()
+        #color_frame = frames.get_color_frame()
 
         # Colorize depth frame to jet colormap
-        color_color_frame = colorizer.colorize(color_frame)
+        color_color_frame = colorizer.colorize(aligned_color_frame)
 
         # Convert depth_frame to numpy array to render image in opencv
         color_color_image = np.asanyarray(color_color_frame.get_data())
 
         # Colorize depth frame to jet colormap
-        depth_color_frame = colorizer.colorize(depth_frame)
+        depth_color_frame = colorizer.colorize(aligned_depth_frame)
 
         # Convert depth_frame to numpy array to render image in opencv
         depth_color_image = np.asanyarray(depth_color_frame.get_data())
 
         # Show distance from a specific point
         cv2.circle(color_color_image, (point[0], point[1]), 4, (0,0,255),-1)
-        dist = depth_frame.get_distance(int(point[0]), int(point[1]))
+        dist = aligned_depth_frame.get_distance(int(point[0]), int(point[1]))
 
         cv2.putText(color_color_image,"{}mm".format(dist),(int(point[0]), int(point[1])),cv2.FONT_HERSHEY_PLAIN,2,(15,255,255),2)
 
